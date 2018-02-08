@@ -43,7 +43,7 @@
 #include <pluginlib/class_list_macros.h>
 #include <sensor_msgs/point_cloud2_iterator.h>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.h>
-
+#include <tf/transform_broadcaster.h>
 namespace pointcloud_to_laserscan
 {
 
@@ -56,15 +56,15 @@ namespace pointcloud_to_laserscan
 
     private_nh_.param<std::string>("target_frame", target_frame_, "");
     private_nh_.param<double>("transform_tolerance", tolerance_, 0.01);
-    private_nh_.param<double>("min_height", min_height_, 0.0);
+    private_nh_.param<double>("min_height", min_height_, -0.5);
     private_nh_.param<double>("max_height", max_height_, 1.0);
 
-    private_nh_.param<double>("angle_min", angle_min_, -M_PI / 2.0);
-    private_nh_.param<double>("angle_max", angle_max_, M_PI / 2.0);
+    private_nh_.param<double>("angle_min", angle_min_, -M_PI );
+    private_nh_.param<double>("angle_max", angle_max_, M_PI);
     private_nh_.param<double>("angle_increment", angle_increment_, M_PI / 360.0);
     private_nh_.param<double>("scan_time", scan_time_, 1.0 / 30.0);
-    private_nh_.param<double>("range_min", range_min_, 0.45);
-    private_nh_.param<double>("range_max", range_max_, 4.0);
+    private_nh_.param<double>("range_min", range_min_, 0.1);
+    private_nh_.param<double>("range_max", range_max_, 20);
 
     int concurrency_level;
     private_nh_.param<int>("concurrency_level", concurrency_level, 1);
@@ -115,7 +115,7 @@ namespace pointcloud_to_laserscan
     if (pub_.getNumSubscribers() > 0 && sub_.getSubscriber().getNumPublishers() == 0)
     {
       NODELET_INFO("Got a subscriber to scan, starting subscriber to pointcloud");
-      sub_.subscribe(nh_, "cloud_in", input_queue_size_);
+      sub_.subscribe(nh_, "/cloud_in", input_queue_size_);
     }
   }
 
@@ -144,9 +144,17 @@ namespace pointcloud_to_laserscan
     output.header = cloud_msg->header;
     if (!target_frame_.empty())
     {
-      output.header.frame_id = target_frame_;
+      output.header.frame_id = "laser";
     }
-
+    //output.header.frame_id = "laser";
+    static tf::TransformBroadcaster laser_broadcaster;
+      tf::Transform laser_transform;
+       laser_transform.setOrigin( tf::Vector3(0.0, 0, 0.00) );
+        tf::Quaternion q;
+       q.setRPY(0, 0, 0);
+       laser_transform.setRotation(q);
+       laser_broadcaster.sendTransform(tf::StampedTransform(laser_transform, ros::Time::now(), "base_link", "laser"));
+    //output.header.frame_id = "laser";
     output.angle_min = angle_min_;
     output.angle_max = angle_max_;
     output.angle_increment = angle_increment_;
